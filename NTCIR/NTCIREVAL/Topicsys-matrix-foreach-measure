@@ -1,0 +1,39 @@
+#!/bin/sh
+
+if [ $# -lt 4 ]; then
+    echo "usage: `basename $0` <tidlist> <syslist> <nevsuffix> <metric>...">&2
+    echo "usage: `basename $0` test.qrels.tid runlist test.nev MSnDCG@0010 Q@0010">&2
+    echo "usage: `basename $0` Dtest.Iprob.tid runlist test.Dnev D#-nDCG@0010 MSnDCG@0010">&2
+    exit 1
+fi
+
+TPATH=$HOME/NTCIR/NTCIREVAL/
+AWK="/usr/bin/env gawk"
+
+# set the above paths appropriately
+
+TIDL=$1
+SYSL=$2
+NEVSUF=$3
+shift
+shift
+shift
+
+OUTSUF="tsm"
+#DOUTSUF="tsmdressed.csv"
+
+# $@ now contains measures
+
+for MEASURE in $@; do
+
+    OUTFILE=`basename $TIDL tid`$SYSL.$NEVSUF.$MEASURE.$OUTSUF
+
+    $TPATH/Topicsys-matrix $TIDL $SYSL $NEVSUF $MEASURE > $OUTFILE
+
+    echo "created $OUTFILE" >&2
+
+#   DOUTFILE=`basename $TIDL tid`$SYSL.$NEVSUF.$MEASURE.$DOUTSUF
+#   $TPATH/Dress-tsmatrix $TIDL $SYSL $OUTFILE > $DOUTFILE
+#    echo "created $DOUTFILE" >&2
+
+done

@@ -1,0 +1,314 @@
+HOW TO USE NTCIREVAL FOR GFR (GROUP FAIRNESS AND RELEVANCE) EVALUATION
+       	   	     	     January 2023 Tetsuya Sakai
+
+0. INTRODUCTION
+
+This document explains how to use NTCIREVAL
+for GFR evaluation (e.g. NTCIR FairWeb task -
+please visit http://sakailab.com/fairweb1/ before reading this document).
+
+PREMISES:
+- Each topic is associated with one or more attribute sets. An attribute set (C) contains either ordinal (e.g. h-index levels) or nomial (e.g. gender) groups.
+- Each attribute set has a target distribution over the |C| groups.
+- Each topic has graded (or binary) relevance assessments.
+- For each of the above judged documents, a group membership probability vector is available. The membership probabilities for each document add up to 1.
+
+A standard evaluation workflow is as follows.
+
+(1) Create a rel (relevance) file for each topic from a qrels file.
+Section 1 provides more details.
+
+(2) For each <topic, attribute set> pair, create a gmv (group membership vector) file from a gmemb file.
+Section 2 provides more details.
+
+(3) From each run file, create a res (search result) file for each topic.
+Section 3 provides more details.
+
+(4) For each <topic, attribute set, run> combination,
+compute component GFR measures using ntcir_eval.
+Section 4 provides more details.
+
+(5) Combine the component measures appropriately to compute the GFR scores.
+Section 5 provides more details.
+
+
+1. Creating a rel file for each topic
+
+You need a NTCIR-format qrels file as the input.
+File format: <topicID> <docID> <relevanceLevel>
+L0 means judged nonrelevant.
+
+[toy.4topics.qrels is included in NTCIREVAL.]
+
+*EXAMPLE*
+
+$ cat toy.4topics.qrels
+P001 doc01 L2
+P001 doc02 L0
+P001 doc03 L1
+P001 doc04 L1
+P002 doc05 L1
+P002 doc06 L1
+P002 doc07 L0
+P003 doc08 L2
+P003 doc09 L0
+P003 doc10 L2
+P003 doc11 L1
+P003 doc12 L1
+P004 doc13 L2
+P004 doc14 L1
+
+Rel files be created using the NTCIRsplitqrels script. It simply splits the qrels file into per-topic rel files. It also creates a tid file, which just contains the topicIDs found in the qrels file.
+
+*EXAMPLE*
+
+$ NTCIRsplitqrels toy.4topics.qrels rel
+created toy.4topics.qrels.tid
+created P001/P001.rel
+created P002/P002.rel
+created P003/P003.rel
+created P004/P004.rel
+
+
+2. Creating a gmv file for each <topic, attribute set>
+
+You need a gmemb (group membership) file for each attribute set as input.
+(The gmemb files used in the examples below are included in NTCIREVAL.)
+
+In the above toy example, suppose that we have
+one R-topic (P001) with 
+ attribute sets HINDEX (4 ordinal groups) and GENDER (3 nominal groups);
+one M-topic (P002) with
+ attribute sets RATINGS (4 ordinal groups) and ORIGIN (8 nominal groups);
+one T topic (P003) with
+ attribute set FOLLOWERS (4 ordinal groups);
+one Y topic (P004) with
+ attribute set SUBSCS (4 ordinal groups).
+
+Then NTCIRsplitqrels can be used again to create gmv (group membership vector) files from each gmemb file. (Note that these *toy* gmemb files contain each contain only one topic, but in general there will be more.)
+
+$ NTCIRsplitqrels toy.R-HINDEX.gmemb R-HINDEX.gmv
+created toy.R-HINDEX.gmemb.tid
+created P001/P001.R-HINDEX.gmv
+$ NTCIRsplitqrels toy.R-GENDER.gmemb R-GENDER.gmv
+created toy.R-GENDER.gmemb.tid
+created P001/P001.R-GENDER.gmv
+
+$ NTCIRsplitqrels toy.M-RATINGS.gmemb M-RATINGS.gmv
+created toy.M-RATINGS.gmemb.tid
+created P002/P002.M-REVIEWS.gmv
+$ NTCIRsplitqrels toy.M-ORIGIN.gmemb M-ORIGIN.gmv
+created toy.M-ORIGIN.gmemb.tid
+created P002/P002.M-ORIGIN.gmv
+
+$ NTCIRsplitqrels toy.T-FOLLOWERS.gmemb T-FOLLOWERS.gmv
+created toy.T-FOLLOWERS.gmemb.tid
+created P003/P003.T-FOLLOWERS.gmv
+
+$ NTCIRsplitqrels toy.Y-SUBSCS.gmemb Y-SUBSCS.gmv
+created toy.Y-SUBSCS.gmemb.tid
+created P004/P004.Y-SUBSCS.gmv
+
+
+Just for shortening the filenames created below, 
+here I create shortnames symbolic links for
+the topic id lists (tid files) created above:
+$ ln -s toy.R-HINDEX.gmemb.tid toy.R.tid
+$ ln -s toy.M-RATINGS.gmemb.tid toy.M.tid
+$ ln -s toy.T-FOLLOWERS.gmemb.tid toy.T.tid
+$ ln -s toy.Y-SUBSCS.gmemb.tid toy.Y.tid
+(Note that toy.R-{HINDEX,GENDER}.gmemb.tid contain the same topics;
+the same goes for M-{RATINGS,ORIGIN}.)
+
+
+3. Creating a res file for each run
+
+Suppose you have a TREC-format run file called toyrun1.
+Each line in TRECRUN should contain the following fields:
+<topicID> <dummy> <documentID> <rank> <docscore> <runname>.
+
+[toyrun1 and toyrun2 are included in NTCIREVAL.]
+
+Suppose the current directory is your experiment directory,
+where the topic directories and the run file are.
+Then you can use the TRECsplitruns script to break up this file into
+per-topic res files.
+
+*EXAMPLE*
+
+$ cat toyrunlist 
+toyrun1
+toyrun2
+
+$ cat toyrunlist | TRECsplitruns toy.4topics.qrels.tid 20
+created P001/P001.toyrun1.res
+created P002/P002.toyrun1.res
+created P003/P003.toyrun1.res
+created P004/P004.toyrun1.res
+created P001/P001.toyrun2.res
+created P002/P002.toyrun2.res
+created P003/P003.toyrun2.res
+created P004/P004.toyrun2.res
+
+The second argument "20" means that only the top 20 documents are kept in the res files even if the run file contains more. (The toy run files actually contain only 5 docs per topic so the above thresholding doesn't do anything.)
+
+
+4. Creating a GFRnev file for each <topic, attribute set, run> combination
+
+To compute the component GFR measures, in addition to the rel and gmv files, you need a golddistr (gold distribution) file for each attribute set.
+(The golddistr files used in the examples below are included in NTCIREVAL.)
+
+In the following examples, the document cutoffs considered are 20 and 100;
+the maximum relevance level for the test collection is two,
+and the gain value assignment is 1 for L1 and 3 for L2 (exponential gain values as in Expected Reciprocal Rank).
+
+
+*EXAMPLE*
+
+$ cat toyrunlist | NTCIR-GFReval toy.R.tid R-HINDEX.golddistr R-HINDEX.gmv rel R-HINDEX -cutoffs 20,100 -g 1:3
+created toyrun1.R-HINDEX.GFRnev
+created toyrun2.R-HINDEX.GFRnev
+$ cat toyrunlist | NTCIR-GFReval toy.R.tid R-GENDER.golddistr R-GENDER.gmv rel R-GENDER -cutoffs 20,100 -g 1:3
+created toyrun1.R-GENDER.GFRnev
+created toyrun2.R-GENDER.GFRnev
+
+$ cat toyrunlist | NTCIR-GFReval toy.M.tid M-RATINGS.golddistr M-RATINGS.gmv rel M-RATINGS -cutoffs 20,100 -g 1:3
+created toyrun1.M-RATINGS.GFRnev
+created toyrun2.M-RATINGS.GFRnev
+$ cat toyrunlist | NTCIR-GFReval toy.M.tid M-ORIGIN.golddistr M-ORIGIN.gmv rel M-ORIGIN -cutoffs 20,100 -g 1:3
+created toyrun1.M-ORIGIN.GFRnev
+created toyrun2.M-ORIGIN.GFRnev
+
+$ cat toyrunlist | NTCIR-GFReval toy.T.tid T-FOLLOWERS.golddistr T-FOLLOWERS.gmv rel T-FOLLOWERS -cutoffs 20,100 -g 1:3
+created toyrun1.T-FOLLOWERS.GFRnev
+created toyrun2.T-FOLLOWERS.GFRnev
+
+$ cat toyrunlist | NTCIR-GFReval toy.Y.tid Y-SUBSCS.golddistr Y-SUBSCS.gmv rel Y-SUBSCS -cutoffs 20,100 -g 1:3
+created toyrun1.Y-SUBSCS.GFRnev
+created toyrun2.Y-SUBSCS.GFRnev
+
+
+5. Computing the final GFR scores using the GFRnev files
+
+For each topic type,
+topic-by-run matrices (tsm files) for the component GFR measures
+can be obtained as follows.
+
+If you have n topics and m runs, then a tsm file is an n x m matrix.
+In the examples below, n=1 (for each topic type R, M, T, Y) 
+and m=2 for each tsm file.
+
+Note that at the NTCIR FairWeb task,
+GF-NMD and GF-RNOD are used for ordinal groups by default,
+and GF-JSD is used for nominal groups.
+
+Please edit the script Topicsys-matrix-foreach-measure
+
+    # R-topics: relevance, HINDEX (ordinal), GENDER (nominal)
+
+$ Topicsys-matrix-foreach-measure toy.R.tid toyrunlist R-HINDEX.GFRnev ERR@0020 iRBU@0020 GF-NMD@0020 GF-RNOD@0020
+created toy.R.toyrunlist.R-HINDEX.GFRnev.ERR@0020.tsm
+created toy.R.toyrunlist.R-HINDEX.GFRnev.iRBU@0020.tsm
+created toy.R.toyrunlist.R-HINDEX.GFRnev.GF-NMD@0020.tsm
+created toy.R.toyrunlist.R-HINDEX.GFRnev.GF-RNOD@0020.tsm
+
+$ Topicsys-matrix-foreach-measure toy.R.tid toyrunlist R-GENDER.GFRnev GF-JSD@0020
+created toy.R.toyrunlist.R-GENDER.GFRnev.GF-JSD@0020.tsm
+
+(The ERR and iRBU scores in the R-HINDEX and R-GENDER GFRnev files are the same.)
+
+     # M-topics: relevance, RATINGS (ordinal), ORIGIN (nominal)
+
+$ Topicsys-matrix-foreach-measure toy.M.tid toyrunlist M-RATINGS.GFRnev ERR@0020 iRBU@0020 GF-NMD@0020 GF-RNOD@0020
+created toy.M.toyrunlist.M-RATINGS.GFRnev.ERR@0020.tsm
+created toy.M.toyrunlist.M-RATINGS.GFRnev.iRBU@0020.tsm
+created toy.M.toyrunlist.M-RATINGS.GFRnev.GF-NMD@0020.tsm
+created toy.M.toyrunlist.M-RATINGS.GFRnev.GF-RNOD@0020.tsm
+
+$ Topicsys-matrix-foreach-measure toy.M.tid toyrunlist M-ORIGIN.GFRnev GF-JSD@0020
+created toy.M.toyrunlist.M-ORIGIN.GFRnev.GF-JSD@0020.tsm
+
+     # T-topics: relevance, FOLLOWERS (ordinal)
+
+$ Topicsys-matrix-foreach-measure toy.T.tid toyrunlist T-FOLLOWERS.GFRnev ERR@0020 iRBU@0020 GF-NMD@0020 GF-RNOD@0020
+created toy.T.toyrunlist.T-FOLLOWERS.GFRnev.ERR@0020.tsm
+created toy.T.toyrunlist.T-FOLLOWERS.GFRnev.iRBU@0020.tsm
+created toy.T.toyrunlist.T-FOLLOWERS.GFRnev.GF-NMD@0020.tsm
+created toy.T.toyrunlist.T-FOLLOWERS.GFRnev.GF-RNOD@0020.tsm
+
+     # Y-topics: relevance, SUBSCS (ordinal)
+
+$ Topicsys-matrix-foreach-measure toy.Y.tid toyrunlist Y-SUBSCS.GFRnev ERR@0020 iRBU@0020 GF-NMD@0020 GF-RNOD@0020
+created toy.Y.toyrunlist.Y-SUBSCS.GFRnev.ERR@0020.tsm
+created toy.Y.toyrunlist.Y-SUBSCS.GFRnev.iRBU@0020.tsm
+created toy.Y.toyrunlist.Y-SUBSCS.GFRnev.GF-NMD@0020.tsm
+created toy.Y.toyrunlist.Y-SUBSCS.GFRnev.GF-RNOD@0020.tsm
+
+Then, tsm files for the final GFR measures can be obtained as follows.
+
+      # R-topics: {ERR,iRBU}x{NMD,RNOD}xJSD
+
+$ Average-topicsys-matrices toy.R.tid toyrunlist GFR-ERR+NMD+JSD 3 R-HINDEX.GFRnev.ERR@0020.tsm R-HINDEX.GFRnev.GF-NMD@0020.tsm R-GENDER.GFRnev.GF-JSD@0020.tsm
+created toy.R.toyrunlist.GFR-ERR+NMD+JSD.tsm
+
+$ Average-topicsys-matrices toy.R.tid toyrunlist GFR-ERR+RNOD+JSD 3 R-HINDEX.GFRnev.ERR@0020.tsm R-HINDEX.GFRnev.GF-RNOD@0020.tsm R-GENDER.GFRnev.GF-JSD@0020.tsm
+created toy.R.toyrunlist.GFR-ERR+RNOD+JSD.tsm
+
+$ Average-topicsys-matrices toy.R.tid toyrunlist GFR-iRBU+NMD+JSD 3 R-HINDEX.GFRnev.iRBU@0020.tsm R-HINDEX.GFRnev.GF-NMD@0020.tsm R-GENDER.GFRnev.GF-JSD@0020.tsm
+created toy.R.toyrunlist.GFR-iRBU+NMD+JSD.tsm
+
+$ Average-topicsys-matrices toy.R.tid toyrunlist GFR-iRBU+RNOD+JSD 3 R-HINDEX.GFRnev.iRBU@0020.tsm R-HINDEX.GFRnev.GF-RNOD@0020.tsm R-GENDER.GFRnev.GF-JSD@0020.tsm
+created toy.R.toyrunlist.GFR-iRBU+RNOD+JSD.tsm
+
+      # M-topics: {ERR,iRBU}x{NMD,RNOD}xJSD
+
+$ Average-topicsys-matrices toy.M.tid toyrunlist GFR-ERR+NMD+JSD 3 M-RATINGS.GFRnev.ERR@0020.tsm M-RATINGS.GFRnev.GF-NMD@0020.tsm M-ORIGIN.GFRnev.GF-JSD@0020.tsm 
+created toy.M.toyrunlist.GFR-ERR+NMD+JSD.tsm
+
+$ Average-topicsys-matrices toy.M.tid toyrunlist GFR-ERR+RNOD+JSD 3 M-RATINGS.GFRnev.ERR@0020.tsm M-RATINGS.GFRnev.GF-RNOD@0020.tsm M-ORIGIN.GFRnev.GF-JSD@0020.tsm 
+created toy.M.toyrunlist.GFR-ERR+RNOD+JSD.tsm
+
+$ Average-topicsys-matrices toy.M.tid toyrunlist GFR-iRBU+NMD+JSD 3 M-RATINGS.GFRnev.iRBU@0020.tsm M-RATINGS.GFRnev.GF-NMD@0020.tsm M-ORIGIN.GFRnev.GF-JSD@0020.tsm 
+created toy.M.toyrunlist.GFR-iRBU+NMD+JSD.tsm
+
+$ Average-topicsys-matrices toy.M.tid toyrunlist GFR-iRBU+RNOD+JSD 3 M-RATINGS.GFRnev.iRBU@0020.tsm M-RATINGS.GFRnev.GF-RNOD@0020.tsm M-ORIGIN.GFRnev.GF-JSD@0020.tsm 
+created toy.M.toyrunlist.GFR-iRBU+RNOD+JSD.tsm
+
+      # T-topics: {ERR,iRBU}x{NMD,RNOD}
+
+$ Average-topicsys-matrices toy.T.tid toyrunlist GFR-ERR+NMD 2 T-FOLLOWERS.GFRnev.ERR@0020.tsm T-FOLLOWERS.GFRnev.GF-NMD@0020.tsm
+created toy.T.toyrunlist.GFR-ERR+NMD.tsm
+
+$ Average-topicsys-matrices toy.T.tid toyrunlist GFR-ERR+RNOD 2 T-FOLLOWERS.GFRnev.ERR@0020.tsm T-FOLLOWERS.GFRnev.GF-RNOD@0020.tsm
+created toy.T.toyrunlist.GFR-ERR+RNOD.tsm
+
+$ Average-topicsys-matrices toy.T.tid toyrunlist GFR-iRBU+NMD 2 T-FOLLOWERS.GFRnev.iRBU@0020.tsm T-FOLLOWERS.GFRnev.GF-NMD@0020.tsm
+created toy.T.toyrunlist.GFR-iRBU+NMD.tsm
+
+$ Average-topicsys-matrices toy.T.tid toyrunlist GFR-iRBU+RNOD 2 T-FOLLOWERS.GFRnev.iRBU@0020.tsm T-FOLLOWERS.GFRnev.GF-RNOD@0020.tsm
+created toy.T.toyrunlist.GFR-iRBU+RNOD.tsm
+
+      # Y-topics: {ERR,iRBU}x{NMD,RNOD}
+
+$ Average-topicsys-matrices toy.Y.tid toyrunlist GFR-ERR+NMD 2 Y-SUBSCS.GFRnev.ERR@0020.tsm Y-SUBSCS.GFRnev.GF-NMD@0020.tsm
+created toy.Y.toyrunlist.GFR-ERR+NMD.tsm
+
+$ Average-topicsys-matrices toy.Y.tid toyrunlist GFR-ERR+RNOD 2 Y-SUBSCS.GFRnev.ERR@0020.tsm Y-SUBSCS.GFRnev.GF-RNOD@0020.tsm
+created toy.Y.toyrunlist.GFR-ERR+RNOD.tsm
+
+$ Average-topicsys-matrices toy.Y.tid toyrunlist GFR-iRBU+NMD 2 Y-SUBSCS.GFRnev.iRBU@0020.tsm Y-SUBSCS.GFRnev.GF-NMD@0020.tsm
+created toy.Y.toyrunlist.GFR-iRBU+NMD.tsm
+
+$ Average-topicsys-matrices toy.Y.tid toyrunlist GFR-iRBU+RNOD 2 Y-SUBSCS.GFRnev.iRBU@0020.tsm Y-SUBSCS.GFRnev.GF-RNOD@0020.tsm
+created toy.Y.toyrunlist.GFR-iRBU+RNOD.tsm
+
+
+* * * * *
+CITATION
+
+Please cite the following paper if you are using the GFR measures in your papers.
+Sakai, T. et al.: A Versatile Framework for Evaluating Ranked Lists in terms of Group Fairness and Relevance, http://arxiv.org/abs/2204.00280, 2022.
+
+INQUIRIES should be sent to tetsuyasakai@acm.org
+
+

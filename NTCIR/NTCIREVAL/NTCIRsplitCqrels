@@ -1,0 +1,41 @@
+#!/bin/sh
+# Basically the same as NTCIRsplitqrels, but sorts each output file by the 2nd field.
+# It is assumed that the input Cqrels file contains a gain value (not a relevance level)
+# in the 3rd field. If the gain value is zero or less, that document is ignored.
+
+# Creates topic directories (if they do not exist) under current directory.
+# Also creates a list of topicIDs based on the qrels file.
+
+if [ $# -ne 2 ]; then
+    echo "usage: `basename $0` <Cqrelsfile> <Crelsuf>" >&2
+    echo " e.g.: `basename $0` e-test.eqrels Crel" >&2
+    exit 1
+fi
+
+QRELS=$1
+RELSUF=$2
+shift
+shift
+
+TIDSUF="tid"
+
+AWK="/usr/bin/env gawk"
+
+# create a topicid file from the qrel file
+
+TIDFILE=$QRELS.$TIDSUF
+cat $QRELS | $AWK '{print $1}' | sort -u > $TIDFILE
+echo "created $TIDFILE" >&2
+
+# create a rel assessment file in each topic directory
+
+cat $TIDFILE | while read TID; do
+
+ mkdir -p $TID
+ OUTF=$TID/$TID.$RELSUF
+
+ cat $QRELS | $AWK '
+ $1=="'$TID'" && $3>0{ print }' | sed "s/^${TID}${SEP}//" | sort -k 2 -nr > $OUTF
+ echo "created $OUTF" >&2
+
+done

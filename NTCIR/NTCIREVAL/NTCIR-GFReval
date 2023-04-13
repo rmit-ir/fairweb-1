@@ -1,0 +1,67 @@
+#!/bin/sh
+# compute GFR (group fairness and relevance) measures
+# for the NTCIR Fair Web task
+# using a rel file, a gmv (group membership vector) file,
+# and a res file in each directory
+
+# relevance levels for NTCIR-17 FairWeb: up to L2 (so use -g 1:2 etc.)
+
+# Run this per topic type (R, M, T, Y etc.)
+
+if [ $# -lt 7 ]; then
+    echo "usage: `basename $0` <topicIDfile> <golddistrfile> <gmvsuf> <relsuf> <evaluationname> <options> [runlist]" >&2
+    echo " e.g.: echo run.bm25-depThre3 | `basename $0` sample.Rtopics.tid R-GENDER.golddistr R-GENDER.gmv rel R-GENDER -cutoffs 20,100 -g 1:2" >&2
+    echo " e.g.: echo run.bm25-depThre3 | `basename $0` sample.Rtopics.tid R-HINDEX.golddistr R-HINDEX.gmv rel R-HINDEX -cutoffs 20,100 -g 1:2" >&2
+    echo " e.g.: echo run.bm25-depThre3 | `basename $0` sample.Mtopics.tid M-ORIGIN.golddistr M-ORIGIN.gmv rel M-ORIGIN -cutoffs 20,100 -g 1:2" >&2
+    echo " e.g.: echo run.bm25-depThre3 | `basename $0` sample.Mtopics.tid M-REVIEWS.golddistr M-REVIEWS.gmv rel M-REVIEWS -cutoffs 20,100 -g 1:2" >&2
+    echo " e.g.: echo run.bm25-depThre3 | `basename $0` sample.Ytopics.tid Y-SUBSCS.golddistr Y-SUBSCS.gmv rel Y-SUBSCS -cutoffs 20,100 -g 1:2" >&2
+    exit 1
+
+fi
+
+    # set your own ntcir_eval path here
+#NEVPATH=ntcir_eval
+NEVPATH=$HOME/NTCIR/NTCIREVAL/ntcir_eval
+
+AWK="/usr/bin/env gawk"
+
+OSUF="GFRnev"
+RESSUF="res"
+LABSUF="GFlab"
+
+TIDFILE=$1
+GOLDFILE=$2
+GMVSUF=$3
+RELSUF=$4
+OUTSTR=$5
+shift
+shift
+shift
+shift
+shift
+
+COMPOPT=$@
+
+NGROUPS=`cat $GOLDFILE | wc -l`
+
+
+while read RUN; do
+
+ OUTF=$RUN.$OUTSTR.$OSUF
+
+ cat $TIDFILE | while read TID; do
+
+  LABFILE=$TID/$TID.$RUN.$OUTSTR.$LABSUF
+
+  cat $TID/$TID.$RUN.$RESSUF |
+  $NEVPATH GFlabel -gm $TID/$TID.$GMVSUF -ngroups $NGROUPS > $LABFILE
+  echo "created $LABFILE" >&2
+
+  cat $LABFILE |
+  $NEVPATH GFRcompute -r $TID/$TID.$RELSUF -gdistr $GOLDFILE -ngroups $NGROUPS $COMPOPT -out $TID
+ 
+ done > $OUTF
+
+ echo "created $OUTF" >&2
+
+done

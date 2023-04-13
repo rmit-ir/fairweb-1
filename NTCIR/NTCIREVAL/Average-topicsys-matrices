@@ -1,0 +1,82 @@
+#!/bin/sh
+
+# average each cell of multiple tsm files
+
+if [ $# -lt 6 ]; then
+    echo "usage: `basename $0` <tidlist> <syslist> <outlabel> <nfiles> <tsmsuf1> <tsmsuf2>...">&2
+    echo "usage: `basename $0` toy.R.tid toyrunlist GFR-ERR-NMD-JSD 3 R-HINDEX.GFRnev.ERR@0005.tsm R-HINDEX.GFRnev.GF-NMD@0005.tsm R-GENDER.GFRnev.GF-JSD@0005.tsm">&2
+    echo "usage: `basename $0` toy.R.tid toyrunlist iRBU-RNOD-JSD 3 R-HINDEX.GFRnev.iRBU@0005.tsm R-HINDEX.GFRnev.GF-RNOD@0005.tsm R-GENDER.GFRnev.GF-JSD@0005.tsm">&2
+    exit 1
+fi
+
+#T=$HOME/bin
+
+AWK="/usr/bin/env gawk"
+
+
+TIDL=$1
+SYSL=$2
+OUTLAB=$3
+NFILES=$4
+shift
+shift
+shift
+shift
+
+# $@ now contains tsm suffixes
+
+OUTSUF="tsm"
+#DOUTSUF="tsmdressed.csv"
+
+PREF=`basename $TIDL tid`$SYSL
+
+OUTFILE=$PREF.$OUTLAB.$OUTSUF
+DOUTFILE=$PREF.$OUTLAB.$DOUTSUF
+
+TNUM=`cat $TIDL | wc -l`
+SNUM=`cat $SYSL | wc -l`
+
+echo $@ | for SUF; do
+ cat $PREF.$SUF
+done | $AWK 'BEGIN{ tnum = '$TNUM'; snum= '$SNUM'; nfiles = '$NFILES'; 
+
+ for( i = 1; i <= tnum; i++ ){
+  for( j = 1; j <= snum; j++ ){
+   val[ i ][ j ] = 0.0;
+  }
+ }
+
+}
+# NF != snum{ printf( "#bad number of rows: %d\n", NF ); exit }
+{
+  tid = NR % tnum; 
+  if( tid == 0 ){ tid = tnum }
+  for( j = 1; j <= NF; j++ ){
+   val[ tid ][ j ] += $j;
+  }
+
+}
+END{ # print averages not sums
+
+ if( NR != tnum * nfiles ){ printf( "#bad NR: %d\n", NR ); exit };
+
+ for( i = 1; i <= tnum; i++ ){
+
+  for( j = 1; j < snum; j++ ){
+   printf( "%.4f ", val[ i ][ j ]/nfiles );
+  }
+
+  printf( "%.4f\n", val[ i ][ snum ]/nfiles );
+
+ }
+
+}
+' > $OUTFILE
+
+echo "created $OUTFILE" >&2
+
+#$T/Dress-tsmatrix $TIDL $SYSL $OUTFILE > $DOUTFILE
+
+#echo "created $DOUTFILE" >&2
+
+

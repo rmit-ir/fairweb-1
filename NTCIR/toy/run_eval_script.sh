@@ -1,0 +1,109 @@
+#!/bin/bash
+
+# In-house script for running the GFR Evaluation
+# Inputs Required:
+# 1. qrels
+# 2. group membership files for each attribute
+# 3. Run files
+# 4. run list file (which contain a list of all runs to be included)
+# 5. Gold distribution files
+
+NTCIR_EVAL_FOLDER_PATH=$HOME/NTCIR/NTCIREVAL/
+RUN_LIST=toyrunlist
+PREFIX_NAME=toy
+QREL_FILE=$PREFIX_NAME.4topics.qrels
+
+
+$NTCIR_EVAL_FOLDER_PATH/NTCIRsplitqrels $QREL_FILE rel
+
+$NTCIR_EVAL_FOLDER_PATH/NTCIRsplitqrels $PREFIX_NAME.R-HINDEX.gmemb R-HINDEX.gmv
+
+$NTCIR_EVAL_FOLDER_PATH/NTCIRsplitqrels $PREFIX_NAME.R-GENDER.gmemb R-GENDER.gmv
+
+$NTCIR_EVAL_FOLDER_PATH/NTCIRsplitqrels $PREFIX_NAME.M-RATINGS.gmemb M-RATINGS.gmv
+
+$NTCIR_EVAL_FOLDER_PATH/NTCIRsplitqrels $PREFIX_NAME.T-FOLLOWERS.gmemb T-FOLLOWERS.gmv
+
+$NTCIR_EVAL_FOLDER_PATH/NTCIRsplitqrels $PREFIX_NAME.Y-SUBSCS.gmemb Y-SUBSCS.gmv
+
+ln -s $PREFIX_NAME.R-HINDEX.gmemb.tid $PREFIX_NAME.R.tid
+
+ln -s $PREFIX_NAME.M-RATINGS.gmemb.tid $PREFIX_NAME.M.tid
+
+ln -s $PREFIX_NAME.T-FOLLOWERS.gmemb.tid $PREFIX_NAME.T.tid
+
+ln -s $PREFIX_NAME.Y-SUBSCS.gmemb.tid $PREFIX_NAME.Y.tid
+
+cat $RUN_LIST | $NTCIR_EVAL_FOLDER_PATH/TRECsplitruns $QREL_FILE.tid 20
+
+cat $RUN_LIST | $NTCIR_EVAL_FOLDER_PATH/NTCIR-GFReval $PREFIX_NAME.R.tid R-HINDEX.golddistr R-HINDEX.gmv rel R-HINDEX -cutoffs 20,100 -g 1:3
+
+cat $RUN_LIST | $NTCIR_EVAL_FOLDER_PATH/NTCIR-GFReval $PREFIX_NAME.R.tid R-GENDER.golddistr R-GENDER.gmv rel R-GENDER -cutoffs 20,100 -g 1:3
+
+cat $RUN_LIST | $NTCIR_EVAL_FOLDER_PATH/NTCIR-GFReval $PREFIX_NAME.M.tid M-RATINGS.golddistr M-RATINGS.gmv rel M-RATINGS -cutoffs 20,100 -g 1:3
+
+cat $RUN_LIST | $NTCIR_EVAL_FOLDER_PATH/NTCIR-GFReval $PREFIX_NAME.M.tid M-ORIGIN.golddistr M-ORIGIN.gmv rel M-ORIGIN -cutoffs 20,100 -g 1:3
+
+cat $RUN_LIST | $NTCIR_EVAL_FOLDER_PATH/NTCIR-GFReval $PREFIX_NAME.T.tid T-FOLLOWERS.golddistr T-FOLLOWERS.gmv rel T-FOLLOWERS -cutoffs 20,100 -g 1:3
+
+cat $RUN_LIST | $NTCIR_EVAL_FOLDER_PATH/NTCIR-GFReval $PREFIX_NAME.Y.tid Y-SUBSCS.golddistr Y-SUBSCS.gmv rel Y-SUBSCS -cutoffs 20,100 -g 1:3
+
+# Final GFR Scores calculation
+
+# For R-Topic
+$NTCIR_EVAL_FOLDER_PATH/Topicsys-matrix-foreach-measure $PREFIX_NAME.R.tid $RUN_LIST R-HINDEX.GFRnev ERR@0020 iRBU@0020 GF-NMD@0020 GF-RNOD@0020
+$NTCIR_EVAL_FOLDER_PATH/Topicsys-matrix-foreach-measure $PREFIX_NAME.R.tid $RUN_LIST R-GENDER.GFRnev GF-JSD@0020
+
+# For M-Topic
+$NTCIR_EVAL_FOLDER_PATH/Topicsys-matrix-foreach-measure $PREFIX_NAME.M.tid $RUN_LIST M-RATINGS.GFRnev ERR@0020 iRBU@0020 GF-NMD@0020 GF-RNOD@0020
+$NTCIR_EVAL_FOLDER_PATH/Topicsys-matrix-foreach-measure $PREFIX_NAME.M.tid $RUN_LIST M-ORIGIN.GFRnev GF-JSD@0020
+
+# For T-Topic
+$NTCIR_EVAL_FOLDER_PATH/Topicsys-matrix-foreach-measure $PREFIX_NAME.T.tid $RUN_LIST T-FOLLOWERS.GFRnev ERR@0020 iRBU@0020 GF-NMD@0020 GF-RNOD@0020
+
+# For Y-Topic
+$NTCIR_EVAL_FOLDER_PATH/Topicsys-matrix-foreach-measure $PREFIX_NAME.Y.tid $RUN_LIST Y-SUBSCS.GFRnev ERR@0020 iRBU@0020 GF-NMD@0020 GF-RNOD@0020
+
+# Averaging Scores
+$NTCIR_EVAL_FOLDER_PATH/Average-topicsys-matrices $PREFIX_NAME.R.tid $RUN_LIST GFR-ERR+NMD+JSD 3 R-HINDEX.GFRnev.ERR@0020.tsm R-HINDEX.GFRnev.GF-NMD@0020.tsm R-GENDER.GFRnev.GF-JSD@0020.tsm
+
+$NTCIR_EVAL_FOLDER_PATH/Average-topicsys-matrices $PREFIX_NAME.R.tid $RUN_LIST GFR-ERR+RNOD+JSD 3 R-HINDEX.GFRnev.ERR@0020.tsm R-HINDEX.GFRnev.GF-RNOD@0020.tsm R-GENDER.GFRnev.GF-JSD@0020.tsm
+
+$NTCIR_EVAL_FOLDER_PATH/Average-topicsys-matrices $PREFIX_NAME.R.tid $RUN_LIST GFR-iRBU+NMD+JSD 3 R-HINDEX.GFRnev.iRBU@0020.tsm R-HINDEX.GFRnev.GF-NMD@0020.tsm R-GENDER.GFRnev.GF-JSD@0020.tsm
+
+$NTCIR_EVAL_FOLDER_PATH/Average-topicsys-matrices $PREFIX_NAME.R.tid $RUN_LIST GFR-iRBU+RNOD+JSD 3 R-HINDEX.GFRnev.iRBU@0020.tsm R-HINDEX.GFRnev.GF-RNOD@0020.tsm R-GENDER.GFRnev.GF-JSD@0020.tsm
+
+$NTCIR_EVAL_FOLDER_PATH/Average-topicsys-matrices $PREFIX_NAME.M.tid $RUN_LIST GFR-ERR+NMD+JSD 3 M-RATINGS.GFRnev.ERR@0020.tsm M-RATINGS.GFRnev.GF-NMD@0020.tsm M-ORIGIN.GFRnev.GF-JSD@0020.tsm 
+
+$NTCIR_EVAL_FOLDER_PATH/Average-topicsys-matrices $PREFIX_NAME.M.tid $RUN_LIST GFR-ERR+RNOD+JSD 3 M-RATINGS.GFRnev.ERR@0020.tsm M-RATINGS.GFRnev.GF-RNOD@0020.tsm M-ORIGIN.GFRnev.GF-JSD@0020.tsm 
+
+$NTCIR_EVAL_FOLDER_PATH/Average-topicsys-matrices $PREFIX_NAME.M.tid $RUN_LIST GFR-iRBU+NMD+JSD 3 M-RATINGS.GFRnev.iRBU@0020.tsm M-RATINGS.GFRnev.GF-NMD@0020.tsm M-ORIGIN.GFRnev.GF-JSD@0020.tsm 
+
+$NTCIR_EVAL_FOLDER_PATH/Average-topicsys-matrices $PREFIX_NAME.M.tid $RUN_LIST GFR-iRBU+RNOD+JSD 3 M-RATINGS.GFRnev.iRBU@0020.tsm M-RATINGS.GFRnev.GF-RNOD@0020.tsm M-ORIGIN.GFRnev.GF-JSD@0020.tsm 
+
+$NTCIR_EVAL_FOLDER_PATH/Average-topicsys-matrices $PREFIX_NAME.T.tid $RUN_LIST GFR-ERR+NMD 2 T-FOLLOWERS.GFRnev.ERR@0020.tsm T-FOLLOWERS.GFRnev.GF-NMD@0020.tsm
+
+$NTCIR_EVAL_FOLDER_PATH/Average-topicsys-matrices $PREFIX_NAME.T.tid $RUN_LIST GFR-ERR+RNOD 2 T-FOLLOWERS.GFRnev.ERR@0020.tsm T-FOLLOWERS.GFRnev.GF-RNOD@0020.tsm
+
+$NTCIR_EVAL_FOLDER_PATH/Average-topicsys-matrices $PREFIX_NAME.T.tid $RUN_LIST GFR-iRBU+NMD 2 T-FOLLOWERS.GFRnev.iRBU@0020.tsm T-FOLLOWERS.GFRnev.GF-NMD@0020.tsm
+
+$NTCIR_EVAL_FOLDER_PATH/Average-topicsys-matrices $PREFIX_NAME.T.tid $RUN_LIST GFR-iRBU+RNOD 2 T-FOLLOWERS.GFRnev.iRBU@0020.tsm T-FOLLOWERS.GFRnev.GF-RNOD@0020.tsm
+
+$NTCIR_EVAL_FOLDER_PATH/Average-topicsys-matrices $PREFIX_NAME.Y.tid $RUN_LIST GFR-ERR+NMD 2 Y-SUBSCS.GFRnev.ERR@0020.tsm Y-SUBSCS.GFRnev.GF-NMD@0020.tsm
+
+$NTCIR_EVAL_FOLDER_PATH/Average-topicsys-matrices $PREFIX_NAME.Y.tid $RUN_LIST GFR-ERR+RNOD 2 Y-SUBSCS.GFRnev.ERR@0020.tsm Y-SUBSCS.GFRnev.GF-RNOD@0020.tsm
+
+$NTCIR_EVAL_FOLDER_PATH/Average-topicsys-matrices $PREFIX_NAME.Y.tid $RUN_LIST GFR-iRBU+NMD 2 Y-SUBSCS.GFRnev.iRBU@0020.tsm Y-SUBSCS.GFRnev.GF-NMD@0020.tsm
+
+$NTCIR_EVAL_FOLDER_PATH/Average-topicsys-matrices $PREFIX_NAME.Y.tid $RUN_LIST GFR-iRBU+RNOD 2 Y-SUBSCS.GFRnev.iRBU@0020.tsm Y-SUBSCS.GFRnev.GF-RNOD@0020.tsm
+
+DIR="results"
+
+if [ ! -d "$DIR" ]; then
+  mkdir -p "$DIR"
+  echo "$DIR Directory created."
+else
+  echo "$DIR Directory already exists."
+fi
+
+mv *.tsm $DIR

@@ -1,0 +1,53 @@
+#!/bin/sh
+# compute evaluation metrics based on continuous gain values.
+# Each Crel file should contain *sorted gain values*
+# instead of relevance levels such as L2, L1.
+# Crel fiel format:
+# <docID> <gain value>
+#  :       :
+
+if [ $# -lt 5 ]; then
+    echo "usage: `basename $0` <topicIDfile> <crelsuf> <evaluationname> <options> [runlist]" >&2
+    echo " e.g.: echo TRECRUN | `basename $0` test.qrels.tid Crel test -cutoffs 10,1000" >&2
+    exit 1
+fi
+
+# set your own ntcir_eval path here
+NEVPATH=ntcir_eval
+
+AWK="/usr/bin/env gawk"
+
+OSUF="Cnev"
+RESSUF="res"
+LABSUF="Clab"
+
+TIDFILE=$1
+VRELSUF=$2
+OUTSTR=$3
+shift
+shift
+shift
+
+COMPOPT=$@
+
+
+while read RUN; do
+
+ OUTF=$RUN.$OUTSTR.$OSUF
+
+ cat $TIDFILE | while read TID; do
+
+  LABFILE=$TID/$TID.$RUN.$OUTSTR.$LABSUF
+
+  cat $TID/$TID.$RUN.$RESSUF |
+  $NEVPATH glabel -I $TID/$TID.$VRELSUF > $LABFILE
+  echo "created $LABFILE" >&2
+
+  cat $LABFILE |
+  $NEVPATH gcompute -I $TID/$TID.$VRELSUF $COMPOPT -out $TID
+ 
+ done > $OUTF
+
+ echo "created $OUTF" >&2
+
+done
