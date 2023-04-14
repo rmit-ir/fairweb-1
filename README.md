@@ -28,7 +28,7 @@ CIDDA RMIT IR participation at the NTCIR FairWeb-1 task
 5. Then in the terminal, go to the directory where you want the repository cloned and enter the following command to clone:
    
    ```
-   git clone git@github.com:rmit-ir/fairweb-1.git
+   git clone -b dev git@github.com:rmit-ir/fairweb-1.git
    ```
    
    Enter your passphrase if/when prompted.
