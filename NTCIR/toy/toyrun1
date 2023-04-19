@@ -1,0 +1,21 @@
+<SYSDESC>this is a toy run.</SYSDESC>
+P001 0 doc01 1 5 toyrun1
+P001 0 unj01 2 4 toyrun1
+P001 0 doc02 3 3 toyrun1
+P001 0 doc04 4 2 toyrun1
+P001 0 unj02 5 1 toyrun1
+P002 0 unj03 1 5 toyrun1
+P002 0 doc07 2 4 toyrun1
+P002 0 doc05 3 3 toyrun1
+P002 0 unj04 4 2 toyrun1
+P002 0 doc06 5 1 toyrun1
+P003 0 doc11 1 5 toyrun1
+P003 0 doc08 2 4 toyrun1
+P003 0 unj05 3 3 toyrun1
+P003 0 unj06 4 2 toyrun1
+P003 0 doc10 5 1 toyrun1
+P004 0 unj07 1 5 toyrun1
+P004 0 unj08 2 4 toyrun1
+P004 0 doc14 3 3 toyrun1
+P004 0 unj09 4 2 toyrun1
+P004 0 doc13 5 1 toyrun1

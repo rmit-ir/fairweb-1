@@ -1,0 +1,353 @@
+How to use NTCIREVAL version 230128             Jan 2023 Tetsuya Sakai
+
+NEW: 
+- Handles Group Fair evaluation for the FairWeb task.
+
+0. INTRODUCTION
+
+NTCIREVAL is a toolkit for evaluating various information retrieval tasks.
+It can compute various retrieval effectiveness metrics,
+with a focus on those that are based on graded relevance.
+It is designed for UNIX/Linux environments.
+
+NTCIREVAL contains one simple C program, called ntcir_eval,
+which computes various evaluation metrics.
+The package also contains many simple shell scripts which might
+help you conduct evaluation experiments.
+
+[Sakai19CLEFbook] provides a quick introduction to NTCIREVAL.
+For Japanese users, there is a nice textbook written in Japanese 
+that discusses how to use NTCIREVAL: see
+http://sakailab.com/iaembook/ .
+
+
+1. HOW TO INSTALL NTCIREVAL
+
+In a UNIX/Linux environment, type:
+% tar xvf NTCIREVAL.tar
+
+and you get all the files you need. Then type:
+% make
+
+and you get the C program binary "ntcir_eval".
+
+Some of the scripts contain this line:
+AWK="/usr/bin/env gawk"
+If necessary, edit the script file and modify the awk path.
+
+Move ntcir_eval and all the scripts to your bin directory,
+e.g., $HOME/bin that's included in your $path
+
+
+2. HOW TO USE NTCIREVAL
+
+ 2.1 For standard adhoc ranked retrieval
+
+Follow the steps described in README.adhoc.
+
+ 2.2 For ranked retrieval evaluation using continuous gain values
+
+Follow the steps described in README.continuous. 
+
+ 2.3 For diversified ranked retrieval
+
+Follow the steps described in README.diversity.
+
+ 2.4 For ranked retrieval evaluation based on equivalence classes
+
+Follow the steps described in README.equivalence.
+
+ 2.5 For NTCIR Community QA answer ranking
+
+Follow the steps described in README.cqa.
+
+ 2.6 For NTCIR 1CLICK 
+
+Follow the steps described in README.1click.
+
+ 2.7 For NTCIR FairWeb
+
+Follow the steps described in README.groupfair.
+
+
+3. MORE INFORMATION ON ntcir_eval (the C program)
+
+ntcir_eval has seven subcommands:
+glabel|dinlabel|gcompute|irec|label|compute|GFlabel|GFRcompute|1click
+
+Type
+% ntcir_eval
+
+to get a brief description of each subcommand.
+
+- "label" and "compute" are for standard adhoc IR evaluation.
+- "glabel" and "gcompute" are for IR evaluation based on continuous gain values; they are also used for computing D#-measures for diversity evaluation.
+
+The above four subcommands are discussed in this README.
+
+- "irec" is for computing intent recall for diversity evaluation (discussed in README.diversity).
+- "dinlabel" is for diversity evaluation if navigational and informational intents need to be distinguished (discussed in README.diversity).
+
+- "1click" is for the NTCIR 1CLICK evaluation (discussed in README.1click).
+
+- "GFlabel" and "GFRcompute" are for the NTCIR FairWeb evaluation (discussed in README.groupfair).
+
+Below, we discuss "label", "compute", "glabel", and "gcompute".
+"glabel", "gcompute" and "irec" are discussed in README.diversity.
+"dinlabel" is discussed in README.diversity.din.
+"1click" is discussed in README.1click.
+
+
+ 3.1 "label" and "compute" (for standard adhoc IR evaluation)
+
+"label" simply reads a rel (relevance assessments) file
+and a res (system result) file and
+adds a relevance level to each document in the res file.
+
+*EXAMPLE*
+
+% cat sample.res | ntcir_eval label -r sample.rel
+dummy11 L0
+dummy01 L3
+dummy12
+dummy04 L2
+
+[sample.rel and sample.res are included in the NTCIREVAL package.]
+
+"compute" reads a rel file and a lab file (output of "label")
+and outputs evaluation metrics.
+Using the -g option, you need to specify how many relevance levels
+there are (excluding L0) and the gain value for each relevance level.
+
+*EXAMPLE*
+
+% cat sample.res | ntcir_eval label -r sample.rel | ntcir_eval compute -r sample.rel -g 1:2:3
+ # syslen=4 jrel=10 jnonrel=1
+ # r1=2 rp=2
+ RR=                  0.5000
+ O-measure=           0.5000
+ P-measure=           0.5000
+ P-plus=              0.5000
+ AP=                  0.1000
+ Q-measure=           0.0967
+ NCUgu,P=             0.1316
+ NCUgu,BR=            0.1281
+ NCUrb,P=             0.1215
+ NCUrb,BR=            0.1175
+ RBP=                 0.0761
+ ERR=                 0.4062
+ EBR=                 0.4333
+ iRBU=                0.8551
+ AP@1000=             0.1000
+ Q@1000=              0.0967
+ nDCG@1000=           0.3380
+ MSnDCG@1000=         0.2760
+ P@1000=              0.0020
+ RBP@1000=            0.0761
+ ERR@1000=            0.4062
+ nERR@1000=           0.4710
+ EBR@1000=            0.4333
+ iRBU@1000=           0.8551
+ Hit@1000=            1.0000
+
+
+In the output above, 
+"syslen" is the size of the "res" file;
+"jrel" is the number of judged relevant docs;
+"jnonrel" is the number of judged nonrelevant (L0) docs;
+"r1" is the rank of the first relevant document found in the ranked list
+(for computing Reciprocal Rank and O-measure);
+"rp" is the rank of the first "most relevant" document found in the ranked list
+(for computing P-measure and P-plus).
+
+Section 3.2 provides some information on each evaluation metric.
+
+Optionally, you can use the "cutoffs" option to 
+compute precision, nDCG etc for cutoffs other than 1000 (the default cutoff):
+
+*EXAMPLE*
+
+% cat sample.res | ntcir_eval label -r sample.rel | ntcir_eval compute -r sample.rel -g 1:2:3 -cutoffs 1,10,100,1000
+
+
+Also, you can truncate the system output before computing evaluation metrics by using the "-truncate" option with the "label" subcommand:
+
+*EXAMPLE*
+
+% cat sample.res | ntcir_eval label -r sample.rel -truncate 10 | ntcir_eval compute -r sample.rel -g 1:2:3
+
+
+Moreover, ntcir_eval can compute "Condensed-list measures"
+as described in [Sakai07SIGIR], where unjudged documents are ignored.
+Try using the "-j" option with the "label" subcommand:
+
+*EXAMPLE*
+
+% cat sample.res | ntcir_eval label -j -r sample.rel | ntcir_eval compute -j -r sample.rel -g 1:2:3
+
+If you add the "-j" option to the "compute" command in addition (as shown above),
+a family of bpref metrics as defined in [Sakai07SIGIR] are also output.
+
+
+ntcir_eval can also compute "Equivalence-Class (EC) measures",
+which can be used for factoid QA evaluation as described in [Sakai07TALIP],
+other tasks that involve relevant items that form equivalence classes.
+See README.equivalence for details.
+
+
+ 3.2. More information on adhoc IR evaluation metrics
+
+Hit@k: 1 if top k contains a relevant doc, and 0 otherwise.
+P@k (precision at k): number of relevant docs in top k divided by k.
+AP (Average Precision): See, for example, [Sakai14PROMISE].
+ERR (Expected Reciprocal Rank): See [Chapelle+09CIKM][Sakai14PROMISE].
+nERR: See, for example, [Sakai+11SIGIR].
+RBP (Rank-biased Precision): See [Moffat+08TOIS][Sakai14PROMISE].
+nDCG (original nDCG): See [Jarvelin+02TOIS].
+MSnDCG (Microsoft version of nDCG): See, for example, [Sakai14PROMISE].
+Q-measure: See [Sakai04AIRS][Sakai14PROMISE].
+RR, O-measure, P-measure, P-plus: See, for example, [Sakai07TOD][Sakai14PROMISE].
+NCU (Normalised Cumulative Utility): See [Sakai+08EVIA][Sakai14PROMISE].
+EBR (Expected Blended Ratio): See [Sakai+19SIGIR].
+iRBU (intentwise Rank-Biased Utility): See [Sakai+19SIGIR].
+
+
+ 3.3 "glabel" and "gcompute" (for IR evaluation based on continuous gain values; also used for computing D#-measures for diversity evaluation (see README.diversity))
+
+"glabel" and "gcompute" are similar to "label" and "compute."
+The difference is that, while label/compute use relevance levels such as L0, L1, etc. specified in the rel file,
+glabel/gcompute use gain values specified in the ideal list file (which lists up documents sorted by gain values).
+Put another way, label/compute require discrete relevance levels; glabel/gcompute do not; they are based on continuous gain values.
+
+"glabel" simply reads an ideal list file
+and a res (system result) file and
+adds a gain value to each document in the res file.
+
+*EXAMPLE*
+
+% cat sample.res | ntcir_eval glabel -I sample.ideal
+dummy11 0.0000
+dummy01 3.0000
+dummy12
+dummy04 2.0000
+
+[sample.ideal is also included in the NTCIREVAL package.]
+
+"gcompute" reads an ideal list file and a glab file (output of "glabel")
+and outputs evaluation metrics based on continuous gain values.
+Note the following ouput are basically identical to the aforementioned examle with label/compute (Section 3.1).
+(Unlike compute,gcompute does not output NCUgu,P and NCUgu,BR 
+because these measures rely on discrete relevance levels [Sakai+08EVIA].)
+
+% cat sample.res | ntcir_eval glabel -I sample.ideal | ntcir_eval gcompute -I sample.ideal
+ # syslen=4 jrel=10 jnonrel=1
+ # r1=2 rp=2
+ RR=                  0.5000
+ O-measure=           0.5000
+ P-measure=           0.5000
+ P-plus=              0.5000
+ AP=                  0.1000
+ Q-measure=           0.0967
+ NCUrb,P=             0.1215
+ NCUrb,BR=            0.1175
+ RBP=                 0.0761
+ ERR=                 0.4062
+ EBR=                 0.4333
+ iRBU=                0.8551
+ AP@1000=             0.1000
+ Q@1000=              0.0967
+ nDCG@1000=           0.3380
+ MSnDCG@1000=         0.2760
+ P@1000=              0.0020
+ RBP@1000=            0.0761
+ ERR@1000=            0.4062
+ nERR@1000=           0.4710
+ EBR@1000=            0.4333
+ iRBU@1000=           0.8551
+ Hit@1000=            1.0000
+
+
+
+REFERENCES
+
+[Agrawal+09WSDM] Agrawal et al.:
+Diversifying Search Results,
+WSDM 2009.
+
+[Chapelle+09CIKM] Chapelle, O. et al.:
+Expected Reciprocal Rank for Graded Relevance,
+CIKM 2009.
+
+[Jarvelin+02TOIS] Jarvelin, K. and Kelalainen, J.:
+Cumulated Gain-based Evaluation of IR Techniques,
+ACM TOIS 20(4), 2002.
+
+[Moffat+08TOIS] Moffat, A. and Zobel, J.:
+Rank-biased Precision for Measurement of Retrieval Effectiveness,
+ACM TOIS 27(1), 2008.
+
+[Sakai04AIRS] Sakai, T.:
+Ranking the NTCIR Systems based on Multigrade Relevance,
+AIRS 2004 (LNCS 3411), 2005.
+
+[Sakai07TALIP] Sakai, T.:
+On the Reliability of Factoid Question Answering Evaluation,
+ACM TALIP 6(3), 2007.
+
+[Sakai07TOD] Sakai, T.:
+On the Properties of Evaluation Metrics for Finding One Highly Relevant Document,
+IPSJ Digital Courier, Volume 3, 2007.
+https://doi.org/10.2197/ipsjdc.3.643
+
+[Sakai07SIGIR] Sakai, T.:
+Alternatives to Bpref,
+SIGIR 2007.
+
+[Sakai+08EVIA] Sakai. T. and Robertson, S.:
+Modelling A User Population for Designing Information Retrieval Metrics,
+EVIA 2008.
+http://research.nii.ac.jp/ntcir/workshop/OnlineProceedings7/pdf/EVIA2008/07-EVIA2008-SakaiT.pdf
+
+[Sakai+08IR4QA] Sakai, T. et al.:
+Overview of the NTCIR-7 ACLIA IR4QA Task,
+NTCIR-7 Proceedings
+http://research.nii.ac.jp/ntcir/workshop/OnlineProceedings7/pdf/NTCIR7/C1/IR4QA/01-NTCIR7-OV-IR4QA-SakaiT.pdf
+
+[Sakai+11WSDM] Sakai, T. et al.:
+Using Graded-Relevance Metrics for Evaluating Community QA Answer Selection,
+WSDM 2011.
+
+[Sakai+11SIGIR] Sakai, T. and Song, R.:
+Evaluating Diversified Search Results Using Per-intent Graded Relevance,
+SIGIR 2011.
+
+[Sakai+11CIKM] Sakai, T. et al.:
+Click the Search Button and Be Happy: Evaluating Direct and Immediate Information Access,
+CIKM 2011.
+
+[Sakai+11oneCLICK] Sakai, T. et al:
+Overview of NTCIR-9 1CLICK,
+NTCIR-9 Proceedings,
+http://research.nii.ac.jp/ntcir/workshop/OnlineProceedings9/NTCIR/01-NTCIR9-OV-1CLICK-SakaiT.pdf
+
+[Sakai12WWW] Sakai. T.:
+Evaluation with Informational and Navigational Intents,
+WWW 2012.
+https://doi.org/10.1145/2187836.2187904
+
+[Sakai14PROMISE] Sakai, T.:
+Metrics, Statistics, Tests, PROMISE Winter School 2013: Bridging between Information Retrieval and Databases (LNCS 8173), 2014.
+https://waseda.box.com/sakai14PROMISE
+
+[Sakai17EVIA] Sakai, T.:
+Unanimity-Aware Gain for Highly Subjective Assessments,
+EVIA 2017.
+http://ceur-ws.org/Vol-2008/paper_2.pdf
+e
+[Sakai19CLEFbook] Sakai, T.:
+How to Run an Evaluation Task: with a Primary Focus on Ad Hoc Information Retrieval,
+Information Retrieval Evaluation in a Changing World - Lessons Learned from 20 Years of CLEF, Springer, 2019.
+
+[Sakai+19SIGIR] Sakai, T. and Zeng, Z.:
+Which Diversity Evaluation Measures Are “Good”?,
+SIGIR 2019.
