@@ -8,7 +8,11 @@
 # 4. run list file (which contain a list of all runs to be included)
 # 5. Gold distribution files
 
-NTCIR_EVAL_FOLDER_PATH=$HOME/NTCIR/NTCIREVAL/
+NTCIR_EVAL_FOLDER_PATH=$HOME/fairweb-1/NTCIR/NTCIREVAL/
+
+chmod +x $NTCIR_EVAL_FOLDER_PATH/Topicsys-matrix $NTCIR_EVAL_FOLDER_PATH/NTCIRsplitqrels $NTCIR_EVAL_FOLDER_PATH/TRECsplitruns $NTCIR_EVAL_FOLDER_PATH/NTCIR-GFReval $NTCIR_EVAL_FOLDER_PATH/Topicsys-matrix-foreach-measure $NTCIR_EVAL_FOLDER_PATH/Average-topicsys-matrices
+
+
 RUN_LIST=toyrunlist
 PREFIX_NAME=toy
 QREL_FILE=$PREFIX_NAME.4topics.qrels
