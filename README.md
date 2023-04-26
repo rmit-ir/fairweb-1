@@ -78,4 +78,11 @@ CIDDA RMIT IR participation at the NTCIR FairWeb-1 task
    ```
 5. If all the files are generated successfully for existing runs, you may add your own runs to this folder for evaluation.
 6. Add the run name to the the `runlist` file.
-   
+
+## Analysing Results
+
+After running the ./run_eval_script.sh, please run the following to aggregate the results and create visualisations:
+```
+python eval_test.py
+```
+After running the python script you should be able to see .pdf files and .csv files created inside the 'results' folder that was earlier generated in the same path.
