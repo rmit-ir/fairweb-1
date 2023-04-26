@@ -21,7 +21,7 @@ fi
 
     # set your own ntcir_eval path here
 #NEVPATH=ntcir_eval
-NEVPATH=$HOME/NTCIR/NTCIREVAL/ntcir_eval
+NEVPATH=$HOME/fairweb-1/NTCIR/NTCIREVAL/ntcir_eval
 
 AWK="/usr/bin/env gawk"
 
