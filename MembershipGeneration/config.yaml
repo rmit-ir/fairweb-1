@@ -1,0 +1,5 @@
+run_path: 'Input/runs/'
+run_file: 'test_run.txt'
+html_files_path: 'htmls-baseline-fairweb1-0313.tar.gz'
+output_path: 'memb_files/'
+n_cores: 4
